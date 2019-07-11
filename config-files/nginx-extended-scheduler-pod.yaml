@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-nginx-ext-scheduler1
+spec:
+  schedulerName: extended-scheduler
+  containers:
+  - name: nginx
+    image: nginx:1.7.9
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-nginx-ext-scheduler2
+spec:
+  schedulerName: extended-scheduler
+  containers:
+  - name: nginx
+    image: nginx:1.7.9
+

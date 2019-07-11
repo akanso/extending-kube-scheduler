@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: extended-scheduler-config
+  namespace: default
+data:
+  config.yaml: |
+    apiVersion: componentconfig/v1alpha1
+    kind: KubeSchedulerConfiguration
+    schedulerName: extended-scheduler
+    algorithmSource:
+      policy:
+        configMap:
+          namespace: default
+          name: extended-scheduler-policy
+    leaderElection:
+      leaderElect: true
+      lockObjectName: extended-scheduler
+      lockObjectNamespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: extended-scheduler-policy
+  namespace: default
+data:
+ policy.cfg : |
+  {
+    "kind" : "Policy",
+    "apiVersion" : "v1",
+    "predicates" : [
+      {"name" : "PodFitsHostPorts"},
+      {"name" : "PodFitsResources"},
+      {"name" : "NoDiskConflict"},
+      {"name" : "MatchNodeSelector"},
+      {"name" : "HostName"}
+    ],
+    "priorities" : [
+      {"name" : "LeastRequestedPriority", "weight" : 1},
+      {"name" : "BalancedResourceAllocation", "weight" : 1},
+      {"name" : "ServiceSpreadingPriority", "weight" : 1},
+      {"name" : "EqualPriority", "weight" : 1}
+    ],
+    "extenders" : [{
+      "urlPrefix": "http://localhost:30036/my_scheduler_extension",
+      "prioritizeVerb": "my_new_priorities/image_score",
+      "weight": 3,
+      "enableHttps": false,
+      "nodeCacheCapable": false
+    }],
+    "hardPodAffinitySymmetricWeight" : 10
+  }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: extended-scheduler
+  namespace: default
+  labels:
+    app: extended-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: extended-scheduler
+  template:
+    metadata:
+      labels:
+        app: extended-scheduler
+    spec:
+      hostNetwork: true
+      volumes:
+      - name: extended-scheduler-config
+        configMap:
+          name: extended-scheduler-config
+      - name: extended-scheduler-kube-config
+        configMap:
+          name: extended-scheduler-kube-config
+      containers:
+      - name: extended-scheduler-ctr
+        image: gcr.io/google_containers/hyperkube:v1.11.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - kube-scheduler
+        - --config=/extended-scheduler/config.yaml
+        - --kubeconfig=/etc/kubernetes/scheduler.conf
+        - -v=4
+        volumeMounts:
+        - name: extended-scheduler-config
+          mountPath: /extended-scheduler
+        - mountPath: /etc/kubernetes/scheduler.conf
+          name: extended-scheduler-kube-config
+          readOnly: true

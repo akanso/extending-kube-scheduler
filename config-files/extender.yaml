@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: extender
+spec:
+  selector:
+    app: extender
+  type: NodePort
+  ports:  
+  - name: http
+    port: 80
+    targetPort: 80
+    nodePort: 30036
+    protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: extender
+  namespace: default
+  labels:
+    app: extender
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: extender
+  template:
+    metadata:
+      labels:
+        app: extender
+    spec:
+      hostNetwork: true
+      containers:
+      - name: scheduler-extension-logic
+        image: akanso/scheduler-ext-priority:latest
+        imagePullPolicy: Always
+        args:
+        - -v=6
+        - --http-addr=:80
+        ports:
+          - containerPort: 80
